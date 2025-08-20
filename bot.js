@@ -59,12 +59,16 @@ app.post('/mute-all-except', async (req, res) => {
   console.log(`📥 /mute-all-except: Received ${players.length} players`);
 
   try {
+    const allowedTeams = new Set(["Performer", "Judges", "Host"]);
+
+    const allowedUsers = new Set(
+      players
+        .filter(p => allowedTeams.has(p.team))
+        .map(p => p.robloxUsername)
+    );
+
     const guild = await client.guilds.fetch(GUILD_ID);
     await guild.members.fetch();
-
-    const performers = new Set(
-      players.filter(p => p.team === "Performer").map(p => p.robloxUsername)
-    );
 
     const promises = [];
 
@@ -72,7 +76,7 @@ app.post('/mute-all-except', async (req, res) => {
       if (!member.voice.channel) return;
 
       const robloxName = member.nickname || member.user.username;
-      const shouldMute = !performers.has(robloxName);
+      const shouldMute = !allowedUsers.has(robloxName);
 
       promises.push(
         member.voice.setMute(shouldMute).then(() => {
@@ -126,3 +130,4 @@ app.listen(PORT, () => {
 });
 
 client.login(TOKEN);
+
