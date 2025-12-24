@@ -91,4 +91,48 @@ app.listen(PORT, () => {
   console.log(`🚀 API running on port ${PORT}`);
 });
 
+/* -----------------------------
+   /mute-all-except — mute everyone except allowed teams
+------------------------------*/
+app.post('/mute-all-except', async (req, res) => {
+  const { players } = req.body;
+  console.log(`📥 /mute-all-except: received ${players.length} players`);
+
+  try {
+    const allowedTeams = new Set(["Performer", "Judges", "Host"]);
+    const allowedUsers = new Set(
+      players
+        .filter(p => allowedTeams.has(p.team))
+        .map(p => p.robloxUsername)
+    );
+
+    const guild = await client.guilds.fetch(GUILD_ID);
+    await guild.members.fetch();
+
+    const promises = [];
+
+    guild.members.cache.forEach(member => {
+      if (!member.voice.channel) return;
+
+      const robloxName = member.nickname || member.user.username;
+      const shouldMute = !allowedUsers.has(robloxName);
+
+      promises.push(
+        member.voice.setMute(shouldMute).then(() => {
+          console.log(`${shouldMute ? "🔇 Muted" : "🔊 Unmuted"} ${robloxName}`);
+        }).catch(err => {
+          console.warn(`⚠️ Could not mute/unmute ${robloxName}: ${err.message}`);
+        })
+      );
+    });
+
+    await Promise.all(promises);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("❌ /mute-all-except error:", err);
+    res.sendStatus(500);
+  }
+});
+
 client.login(TOKEN);
+
