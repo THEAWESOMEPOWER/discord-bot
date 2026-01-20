@@ -23,9 +23,9 @@ client.once('ready', () => {
   console.log(`✅ Bot logged in as ${client.user.tag}`);
 });
 
-/* ---------------------------------
+/* -----------------------------
    /update — Roblox → Stage control
-----------------------------------*/
+------------------------------*/
 app.post('/update', async (req, res) => {
   const { robloxUsername, isPerformer } = req.body;
   console.log(`📥 /update ${robloxUsername} performer=${isPerformer}`);
@@ -33,29 +33,30 @@ app.post('/update', async (req, res) => {
   try {
     const guild = await client.guilds.fetch(GUILD_ID);
 
+    // find member in cache
     let member = guild.members.cache.find(
       m => m.nickname === robloxUsername || m.user.username === robloxUsername
     );
 
     if (!member) return res.sendStatus(200);
 
-    // Fetch single member
+    // fetch single member
     member = await guild.members.fetch(member.id);
     const voice = member.voice;
 
     if (!voice?.channel || voice.channel.type !== 13) { // 13 = Stage Voice
-      console.log("⚠️ Not in a Stage VC yet");
+      console.log("⚠️ Not in Stage VC yet");
       return res.sendStatus(200);
     }
 
     try {
       if (isPerformer) {
-        // ✅ Bring to stage
-        await voice.setSuppressed(false); // Unsuppress → can speak on stage
+        // Bring them on stage
+        await voice.setSuppressed(false);
         console.log(`🎤 On stage: ${robloxUsername}`);
       } else {
-        // ✅ Send to audience
-        await voice.setSuppressed(true); // Suppress → back to audience
+        // Send them back to audience
+        await voice.setSuppressed(true);
         console.log(`👥 Audience: ${robloxUsername}`);
       }
     } catch (err) {
@@ -73,3 +74,8 @@ app.post('/update', async (req, res) => {
   }
 });
 
+app.listen(PORT, () => {
+  console.log(`🚀 API running on port ${PORT}`);
+});
+
+client.login(TOKEN);
