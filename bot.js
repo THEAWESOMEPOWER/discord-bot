@@ -1,3 +1,31 @@
+require('dotenv').config();
+
+const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
+const express = require('express');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMembers
+  ]
+});
+
+const TOKEN = process.env.TOKEN;
+const GUILD_ID = process.env.GUILD_ID;
+
+app.use(express.json());
+
+client.once('ready', () => {
+  console.log(`✅ Bot logged in as ${client.user.tag}`);
+});
+
+/* ---------------------------------
+   /update — Roblox → Stage control
+----------------------------------*/
 app.post('/update', async (req, res) => {
   const { robloxUsername, isPerformer } = req.body;
   console.log(`📥 /update ${robloxUsername} performer=${isPerformer}`);
@@ -12,12 +40,12 @@ app.post('/update', async (req, res) => {
 
     if (!member) return res.sendStatus(200);
 
-    // 🔁 REFRESH VOICE STATE (CRITICAL)
+    // 🔁 REFRESH MEMBER (IMPORTANT)
     member = await guild.members.fetch(member.id);
     const voice = member.voice;
 
     if (!voice?.channelId) {
-      console.log("⚠️ User not fully in voice yet");
+      console.log("⚠️ User not fully in voice");
       return res.sendStatus(200);
     }
 
@@ -28,17 +56,14 @@ app.post('/update', async (req, res) => {
 
     try {
       if (isPerformer) {
-        // 🎤 Bring to stage
         await voice.channel.inviteToSpeak(member);
         await voice.setSuppressed(false);
         console.log(`🎤 On stage: ${robloxUsername}`);
       } else {
-        // 👥 Send to audience
         await voice.setSuppressed(true);
         console.log(`👥 Audience: ${robloxUsername}`);
       }
     } catch (err) {
-      // ✅ Ignore known Stage desync error
       if (err.code === 10065) {
         console.warn(`⚠️ Stage desync ignored for ${robloxUsername}`);
       } else {
@@ -52,3 +77,9 @@ app.post('/update', async (req, res) => {
     res.sendStatus(500);
   }
 });
+
+app.listen(PORT, () => {
+  console.log(`🚀 API running on port ${PORT}`);
+});
+
+client.login(TOKEN);
