@@ -32,20 +32,23 @@ app.post('/update', async (req, res) => {
 
   try {
     const guild = await client.guilds.fetch(GUILD_ID);
-    await guild.members.fetch();
 
+    // Find member from cache only
     let member = guild.members.cache.find(
       m => m.nickname === robloxUsername || m.user.username === robloxUsername
     );
 
-    if (!member) return res.sendStatus(200);
+    if (!member) {
+      console.log("⚠️ Member not found");
+      return res.sendStatus(200);
+    }
 
-    // 🔁 REFRESH MEMBER (IMPORTANT)
+    // Re-fetch ONLY this member (safe)
     member = await guild.members.fetch(member.id);
     const voice = member.voice;
 
     if (!voice?.channelId) {
-      console.log("⚠️ User not fully in voice");
+      console.log("⚠️ Not in voice yet");
       return res.sendStatus(200);
     }
 
@@ -56,10 +59,12 @@ app.post('/update', async (req, res) => {
 
     try {
       if (isPerformer) {
-        await voice.channel.inviteToSpeak(member);
+        // 🎤 FORCE TO STAGE (CORRECT WAY)
+        await voice.setRequestToSpeakTimestamp(null);
         await voice.setSuppressed(false);
         console.log(`🎤 On stage: ${robloxUsername}`);
       } else {
+        // 👥 MOVE TO AUDIENCE
         await voice.setSuppressed(true);
         console.log(`👥 Audience: ${robloxUsername}`);
       }
@@ -78,8 +83,3 @@ app.post('/update', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 API running on port ${PORT}`);
-});
-
-client.login(TOKEN);
