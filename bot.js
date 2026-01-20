@@ -21,9 +21,9 @@ client.once('ready', () => {
   console.log(`✅ Bot logged in as ${client.user.tag}`);
 });
 
-/* -----------------------------
-   /update — mute or unmute user
-------------------------------*/
+/* ---------------------------------
+   /update — move user on/off stage
+----------------------------------*/
 app.post('/update', async (req, res) => {
   const { robloxUsername, isPerformer } = req.body;
   console.log(`📥 /update: ${robloxUsername} performer=${isPerformer}`);
@@ -31,12 +31,10 @@ app.post('/update', async (req, res) => {
   try {
     const guild = await client.guilds.fetch(GUILD_ID);
 
-    // 1️⃣ Cache lookup
     let member = guild.members.cache.find(
       m => m.nickname === robloxUsername || m.user.username === robloxUsername
     );
 
-    // 2️⃣ Fallback search (safe)
     if (!member) {
       const results = await guild.members.search({
         query: robloxUsername,
@@ -45,18 +43,14 @@ app.post('/update', async (req, res) => {
       member = results.first();
     }
 
-    if (!member) {
-      console.log("⚠️ Discord member not found");
-      return res.sendStatus(404);
-    }
+    if (!member || !member.voice.channel) return res.sendStatus(200);
 
-    if (!member.voice.channel) {
-      console.log("⚠️ Member not in voice");
-      return res.sendStatus(200);
-    }
+    // 🎤 STAGE LOGIC
+    await member.voice.setSuppressed(!isPerformer);
 
-    await member.voice.setMute(!isPerformer);
-    console.log(`${isPerformer ? "🔊 Unmuted" : "🔇 Muted"} ${robloxUsername}`);
+    console.log(
+      `${isPerformer ? "🎤 On stage" : "👥 Audience"} ${robloxUsername}`
+    );
 
     res.sendStatus(200);
   } catch (err) {
@@ -65,38 +59,34 @@ app.post('/update', async (req, res) => {
   }
 });
 
-/* -----------------------------
-   Unmute everyone
-------------------------------*/
-app.post('/unmute-all', async (req, res) => {
-  console.log("📥 /unmute-all");
+/* ---------------------------------
+   /stage-all — bring everyone up
+----------------------------------*/
+app.post('/stage-all', async (req, res) => {
+  console.log("📥 /stage-all");
 
   try {
     const guild = await client.guilds.fetch(GUILD_ID);
 
     const ops = guild.members.cache.map(member => {
       if (!member.voice.channel) return;
-      return member.voice.setMute(false).catch(() => {});
+      return member.voice.setSuppressed(false).catch(() => {});
     });
 
     await Promise.all(ops);
     res.sendStatus(200);
   } catch (err) {
-    console.error("❌ /unmute-all error:", err);
+    console.error("❌ /stage-all error:", err);
     res.sendStatus(500);
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 API running on port ${PORT}`);
-});
-
-/* -----------------------------
-   /mute-all-except — mute everyone except allowed teams
-------------------------------*/
-app.post('/mute-all-except', async (req, res) => {
+/* ---------------------------------
+   /stage-except — allowed teams only
+----------------------------------*/
+app.post('/stage-except', async (req, res) => {
   const { players } = req.body;
-  console.log(`📥 /mute-all-except: received ${players.length} players`);
+  console.log(`📥 /stage-except: ${players.length} players`);
 
   try {
     const allowedTeams = new Set(["Performer", "Judges", "Host"]);
@@ -115,24 +105,27 @@ app.post('/mute-all-except', async (req, res) => {
       if (!member.voice.channel) return;
 
       const robloxName = member.nickname || member.user.username;
-      const shouldMute = !allowedUsers.has(robloxName);
+      const toAudience = !allowedUsers.has(robloxName);
 
       promises.push(
-        member.voice.setMute(shouldMute).then(() => {
-          console.log(`${shouldMute ? "🔇 Muted" : "🔊 Unmuted"} ${robloxName}`);
-        }).catch(err => {
-          console.warn(`⚠️ Could not mute/unmute ${robloxName}: ${err.message}`);
-        })
+        member.voice.setSuppressed(toAudience).then(() => {
+          console.log(
+            `${toAudience ? "👥 Audience" : "🎤 On stage"} ${robloxName}`
+          );
+        }).catch(() => {})
       );
     });
 
     await Promise.all(promises);
     res.sendStatus(200);
   } catch (err) {
-    console.error("❌ /mute-all-except error:", err);
+    console.error("❌ /stage-except error:", err);
     res.sendStatus(500);
   }
 });
 
-client.login(TOKEN);
+app.listen(PORT, () => {
+  console.log(`🚀 API running on port ${PORT}`);
+});
 
+client.login(TOKEN);
