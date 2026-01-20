@@ -39,21 +39,23 @@ app.post('/update', async (req, res) => {
 
     if (!member) return res.sendStatus(200);
 
+    // Fetch single member
     member = await guild.members.fetch(member.id);
     const voice = member.voice;
 
-    if (!voice || !voice.channel || voice.channel.type !== 13) {
-      // 13 = GUILD_STAGE_VOICE (hardcoded to avoid import crash)
+    if (!voice?.channel || voice.channel.type !== 13) { // 13 = Stage Voice
+      console.log("⚠️ Not in a Stage VC yet");
       return res.sendStatus(200);
     }
 
     try {
       if (isPerformer) {
-        await voice.setRequestToSpeakTimestamp(null);
-        await voice.setSuppressed(false);
+        // ✅ Bring to stage
+        await voice.setSuppressed(false); // Unsuppress → can speak on stage
         console.log(`🎤 On stage: ${robloxUsername}`);
       } else {
-        await voice.setSuppressed(true);
+        // ✅ Send to audience
+        await voice.setSuppressed(true); // Suppress → back to audience
         console.log(`👥 Audience: ${robloxUsername}`);
       }
     } catch (err) {
@@ -71,8 +73,3 @@ app.post('/update', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 API running on port ${PORT}`);
-});
-
-client.login(TOKEN);
